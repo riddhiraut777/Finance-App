@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import './App.css'
 
 // The shape of one transaction, matching the API / database columns.
@@ -21,6 +21,7 @@ function App() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [error, setError] = useState('')
   const [editingId, setEditingId] = useState<number | null>(null) // null = adding new
+  const formRef = useRef<HTMLFormElement>(null) // used to scroll the form into view
   const [month, setMonth] = useState(today().slice(0, 7)) // e.g. "2026-11"; "" = all time
 
   // Form fields
@@ -60,6 +61,8 @@ function App() {
     setCategory(t.category)
     setDate(t.date)
     setNote(t.note ?? '')
+    // On a long list the form can be off screen, so bring it into view.
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
   // Runs when the form is submitted: add a new transaction, or save changes
@@ -76,7 +79,10 @@ function App() {
       body: JSON.stringify({
         type,
         amount: Math.round(Number(amount) * 100), // 450.00 -> 45000
-        category,
+        // Reuse an existing spelling if the typed name matches one ignoring case.
+        category:
+          categories.find((c) => c.toLowerCase() === category.trim().toLowerCase()) ??
+          category.trim(),
         date,
         note: note || undefined,
       }),
@@ -106,7 +112,16 @@ function App() {
   }
 
   // Every category used so far (no duplicates, alphabetical), for the suggestions list.
-  const categories = [...new Set(transactions.map((t) => t.category))].sort()
+  // Matching ignores case: "Groceries" and "groceries" count as one category,
+  // shown with the spelling of the most recent transaction (the list is newest first).
+  const categories = (() => {
+    const byLowerCase = new Map<string, string>()
+    for (const t of transactions) {
+      const key = t.category.toLowerCase()
+      if (!byLowerCase.has(key)) byLowerCase.set(key, t.category)
+    }
+    return [...byLowerCase.values()].sort()
+  })()
 
   // Only the transactions in the selected month ("" means show everything).
   // Dates look like "2026-11-14", so a month "2026-11" matches by prefix.
@@ -120,6 +135,29 @@ function App() {
     .filter((t) => t.type === 'expense')
     .reduce((sum, t) => sum + t.amount, 0)
   const balance = totalIncome - totalExpenses
+
+  // Chart data: add up expenses per category and keep only the 3 biggest.
+  const TOP_CATEGORIES = 3
+  const spendingByCategory = (() => {
+    // Group by lowercase name so differently-cased spellings are added together,
+    // but show the name the way it appears in the suggestions list.
+    const totals = new Map<string, { name: string; total: number }>()
+    for (const t of visible) {
+      if (t.type !== 'expense') continue
+      const key = t.category.toLowerCase()
+      const entry = totals.get(key) ?? {
+        name: categories.find((c) => c.toLowerCase() === key) ?? t.category,
+        total: 0,
+      }
+      entry.total += t.amount
+      totals.set(key, entry)
+    }
+    return [...totals.values()]
+      .sort((a, b) => b.total - a.total)
+      .slice(0, TOP_CATEGORIES)
+      .map((e): [string, number] => [e.name, e.total])
+  })()
+  const biggestCategory = spendingByCategory[0]?.[1] ?? 0
 
   return (
     <main className="app">
@@ -149,7 +187,27 @@ function App() {
         </div>
       </section>
 
-      <form onSubmit={handleSubmit} className="form">
+      {spendingByCategory.length > 0 && (
+        <section className="chart" aria-label="Top expense categories">
+          <h2>Top {spendingByCategory.length === 1 ? 'expense category' : `${spendingByCategory.length} expense categories`}</h2>
+          <ul>
+            {spendingByCategory.map(([name, value]) => {
+              const share = Math.round((value / totalExpenses) * 100)
+              return (
+                <li key={name} title={`${name}: ${formatMoney(value)} (${share}% of expenses)`}>
+                  <span className="chart-name">{name}</span>
+                  <span className="chart-track">
+                    <span className="chart-bar" style={{ width: `${(value / biggestCategory) * 100}%` }} />
+                  </span>
+                  <span className="chart-value">{formatMoney(value)}</span>
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+      )}
+
+      <form ref={formRef} onSubmit={handleSubmit} className="form">
         <select value={type} onChange={(e) => setType(e.target.value as 'income' | 'expense')}>
           <option value="expense">Expense</option>
           <option value="income">Income</option>

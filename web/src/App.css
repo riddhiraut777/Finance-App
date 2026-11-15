@@ -49,6 +49,67 @@
   color: #c62828;
 }
 
+/* Spending-by-category chart: one row per category (name, bar, amount). */
+.chart {
+  --bar: #2a78d6;
+  margin-bottom: 20px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .chart {
+    --bar: #3987e5;
+  }
+}
+
+.chart h2 {
+  font-size: 16px;
+  margin: 0 0 8px;
+  color: var(--text-h);
+}
+
+.chart ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.chart li {
+  display: grid;
+  grid-template-columns: minmax(80px, 160px) 1fr 80px;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.chart-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.chart-track {
+  display: block;
+}
+
+.chart-bar {
+  display: block;
+  height: 16px;
+  min-width: 2px;
+  background: var(--bar);
+  border-radius: 0 4px 4px 0; /* square at the baseline, rounded at the end */
+}
+
+.chart li:hover .chart-bar {
+  opacity: 0.8;
+}
+
+.chart-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-h);
+}
+
 .form {
   display: flex;
   flex-wrap: wrap;
