@@ -73,9 +73,33 @@ function App() {
     await loadTransactions()
   }
 
+  // Totals are calculated from the list we already have; no extra API call needed.
+  const totalIncome = transactions
+    .filter((t) => t.type === 'income')
+    .reduce((sum, t) => sum + t.amount, 0)
+  const totalExpenses = transactions
+    .filter((t) => t.type === 'expense')
+    .reduce((sum, t) => sum + t.amount, 0)
+  const balance = totalIncome - totalExpenses
+
   return (
     <main className="app">
       <h1>Finance Tracker</h1>
+
+      <section className="summary">
+        <div>
+          <span className="label">Income</span>
+          <strong className="income">{formatMoney(totalIncome)}</strong>
+        </div>
+        <div>
+          <span className="label">Expenses</span>
+          <strong className="expense">{formatMoney(totalExpenses)}</strong>
+        </div>
+        <div>
+          <span className="label">Balance</span>
+          <strong className={balance < 0 ? 'expense' : 'income'}>{formatMoney(balance)}</strong>
+        </div>
+      </section>
 
       <form onSubmit={handleAdd} className="form">
         <select value={type} onChange={(e) => setType(e.target.value as 'income' | 'expense')}>
