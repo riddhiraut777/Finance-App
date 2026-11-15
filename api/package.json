@@ -2,7 +2,8 @@
   "name": "api",
   "type": "module",
   "scripts": {
-    "dev": "bun --watch src/index.ts"
+    "dev": "bun --watch src/index.ts",
+    "test": "bun test"
   },
   "dependencies": {
     "hono": "^4.13.14"
