@@ -1,6 +1,6 @@
 # Finance App
 
-A simple personal finance tracker. Add income and expense transactions, see them in a list, delete them, and view total income, total expenses and balance.
+A simple personal finance tracker. Add income and expense transactions, edit or delete them, filter by month, and view total income, total expenses and balance.
 
 ## Tech stack
 
@@ -58,6 +58,7 @@ During development, Vite forwards any request starting with `/api` to the API on
 |---|---|---|
 | GET | `/api/transactions` | List all transactions, newest first |
 | POST | `/api/transactions` | Add a transaction |
+| PUT | `/api/transactions/:id` | Replace all fields of a transaction (same JSON as POST) |
 | DELETE | `/api/transactions/:id` | Delete a transaction |
 
 A transaction is sent as JSON:
@@ -71,14 +72,26 @@ A transaction is sent as JSON:
 - `date` is `YYYY-MM-DD`
 - `note` is optional
 
-Invalid input returns status 400, and deleting an unknown id returns 404.
+Invalid input returns status 400, and editing or deleting an unknown id returns 404.
+
+## Tests
+
+The API has automated tests (add, list, edit, delete and input validation):
+
+```bash
+cd api
+bun run test
+```
+
+They run against a temporary in-memory database (via the `DB_PATH` environment variable), so your real `api/finance.db` is never touched.
 
 ## Project structure
 
 ```
 api/src/index.ts    API routes
 api/src/db.ts       SQLite connection and table setup
-web/src/App.tsx     the main screen (form, list, summary)
+api/src/api.test.ts API tests
+web/src/App.tsx     the main screen (form, list, summary, month filter)
 web/src/App.css     styles
 web/vite.config.ts  Vite config, including the /api proxy
 ```
