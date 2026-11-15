@@ -20,6 +20,7 @@ function App() {
   // `useState` holds data that, when changed, makes the screen update.
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [error, setError] = useState('')
+  const [editingId, setEditingId] = useState<number | null>(null) // null = adding new
   const [month, setMonth] = useState(today().slice(0, 7)) // e.g. "2026-11"; "" = all time
 
   // Form fields
@@ -40,13 +41,37 @@ function App() {
     loadTransactions().catch(() => setError('Could not reach the API. Is it running?'))
   }, [])
 
-  // Runs when the form is submitted: send the new transaction to the API.
-  async function handleAdd(e: React.FormEvent) {
+  // Empty the form and leave edit mode.
+  function resetForm() {
+    setEditingId(null)
+    setType('expense')
+    setAmount('')
+    setCategory('')
+    setDate(today())
+    setNote('')
+  }
+
+  // Load a transaction into the form so it can be changed.
+  function startEdit(t: Transaction) {
+    setError('')
+    setEditingId(t.id)
+    setType(t.type)
+    setAmount(formatMoney(t.amount))
+    setCategory(t.category)
+    setDate(t.date)
+    setNote(t.note ?? '')
+  }
+
+  // Runs when the form is submitted: add a new transaction, or save changes
+  // to the one being edited.
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
 
-    const res = await fetch('/api/transactions', {
-      method: 'POST',
+    const res = await fetch(
+      editingId === null ? '/api/transactions' : `/api/transactions/${editingId}`,
+      {
+      method: editingId === null ? 'POST' : 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         type,
@@ -55,7 +80,8 @@ function App() {
         date,
         note: note || undefined,
       }),
-    })
+      },
+    )
 
     if (!res.ok) {
       setError((await res.json()).error)
@@ -63,14 +89,19 @@ function App() {
     }
 
     // Clear the form and refresh the list.
-    setAmount('')
-    setCategory('')
-    setNote('')
+    if (editingId === null) {
+      setAmount('')
+      setCategory('')
+      setNote('')
+    } else {
+      resetForm()
+    }
     await loadTransactions()
   }
 
   async function handleDelete(id: number) {
     await fetch(`/api/transactions/${id}`, { method: 'DELETE' })
+    if (id === editingId) resetForm() // don't keep editing a deleted row
     await loadTransactions()
   }
 
@@ -118,7 +149,7 @@ function App() {
         </div>
       </section>
 
-      <form onSubmit={handleAdd} className="form">
+      <form onSubmit={handleSubmit} className="form">
         <select value={type} onChange={(e) => setType(e.target.value as 'income' | 'expense')}>
           <option value="expense">Expense</option>
           <option value="income">Income</option>
@@ -146,7 +177,12 @@ function App() {
         </datalist>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
         <input placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
-        <button type="submit">Add</button>
+        <button type="submit">{editingId === null ? 'Add' : 'Save'}</button>
+        {editingId !== null && (
+          <button type="button" onClick={resetForm}>
+            Cancel
+          </button>
+        )}
       </form>
 
       {error && <p className="error">{error}</p>}
@@ -170,6 +206,9 @@ function App() {
                 {t.type === 'income' ? '+' : '-'}
                 {formatMoney(t.amount)}
               </span>
+              <button onClick={() => startEdit(t)} aria-label="Edit">
+                Edit
+              </button>
               <button onClick={() => handleDelete(t.id)} aria-label="Delete">
                 ✕
               </button>

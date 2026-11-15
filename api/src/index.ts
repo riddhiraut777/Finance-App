@@ -15,12 +15,13 @@ app.get("/api/transactions", (c) => {
   return c.json(rows);
 });
 
-// ADD a transaction
-// Expects JSON: { type, amount, category, date, note? }
-// amount is in the smallest unit (e.g. 450.00 -> 45000)
-app.post("/api/transactions", async (c) => {
-  const body = await c.req.json().catch(() => null);
+const INVALID_INPUT_MESSAGE =
+  "Invalid input. Need: type ('income'|'expense'), amount (positive integer), category (text), date (YYYY-MM-DD).";
 
+// Checks the JSON sent by the client. Returns clean values, or null if invalid.
+// Used by both ADD and EDIT so the rules are always the same.
+// amount is in the smallest unit (e.g. 450.00 -> 45000)
+function parseTransaction(body: any) {
   if (
     !body ||
     (body.type !== "income" && body.type !== "expense") ||
@@ -31,24 +32,50 @@ app.post("/api/transactions", async (c) => {
     typeof body.date !== "string" ||
     !/^\d{4}-\d{2}-\d{2}$/.test(body.date)
   ) {
-    return c.json(
-      {
-        error:
-          "Invalid input. Need: type ('income'|'expense'), amount (positive integer), category (text), date (YYYY-MM-DD).",
-      },
-      400,
-    );
+    return null;
   }
+  return {
+    type: body.type as "income" | "expense",
+    amount: body.amount as number,
+    category: body.category.trim() as string,
+    date: body.date as string,
+    note: typeof body.note === "string" && body.note !== "" ? body.note : null,
+  };
+}
+
+// ADD a transaction
+// Expects JSON: { type, amount, category, date, note? }
+app.post("/api/transactions", async (c) => {
+  const t = parseTransaction(await c.req.json().catch(() => null));
+  if (!t) return c.json({ error: INVALID_INPUT_MESSAGE }, 400);
 
   const result = db.run(
     "INSERT INTO transactions (type, amount, category, date, note) VALUES (?, ?, ?, ?, ?)",
-    [body.type, body.amount, body.category.trim(), body.date, body.note ?? null],
+    [t.type, t.amount, t.category, t.date, t.note],
   );
 
   const created = db
     .query("SELECT * FROM transactions WHERE id = ?")
     .get(result.lastInsertRowid);
   return c.json(created, 201);
+});
+
+// EDIT a transaction by id (replaces all its fields)
+// Expects the same JSON as ADD
+app.put("/api/transactions/:id", async (c) => {
+  const id = Number(c.req.param("id"));
+  const t = parseTransaction(await c.req.json().catch(() => null));
+  if (!t) return c.json({ error: INVALID_INPUT_MESSAGE }, 400);
+
+  const result = db.run(
+    "UPDATE transactions SET type = ?, amount = ?, category = ?, date = ?, note = ? WHERE id = ?",
+    [t.type, t.amount, t.category, t.date, t.note, id],
+  );
+  if (result.changes === 0) {
+    return c.json({ error: "Transaction not found" }, 404);
+  }
+
+  return c.json(db.query("SELECT * FROM transactions WHERE id = ?").get(id));
 });
 
 // DELETE a transaction by id
