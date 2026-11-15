@@ -20,6 +20,7 @@ function App() {
   // `useState` holds data that, when changed, makes the screen update.
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [error, setError] = useState('')
+  const [month, setMonth] = useState(today().slice(0, 7)) // e.g. "2026-11"; "" = all time
 
   // Form fields
   const [type, setType] = useState<'income' | 'expense'>('expense')
@@ -73,11 +74,18 @@ function App() {
     await loadTransactions()
   }
 
-  // Totals are calculated from the list we already have; no extra API call needed.
-  const totalIncome = transactions
+  // Every category used so far (no duplicates, alphabetical), for the suggestions list.
+  const categories = [...new Set(transactions.map((t) => t.category))].sort()
+
+  // Only the transactions in the selected month ("" means show everything).
+  // Dates look like "2026-11-14", so a month "2026-11" matches by prefix.
+  const visible = month ? transactions.filter((t) => t.date.startsWith(month)) : transactions
+
+  // Totals are calculated from the visible list; no extra API call needed.
+  const totalIncome = visible
     .filter((t) => t.type === 'income')
     .reduce((sum, t) => sum + t.amount, 0)
-  const totalExpenses = transactions
+  const totalExpenses = visible
     .filter((t) => t.type === 'expense')
     .reduce((sum, t) => sum + t.amount, 0)
   const balance = totalIncome - totalExpenses
@@ -85,6 +93,15 @@ function App() {
   return (
     <main className="app">
       <h1>Finance Tracker</h1>
+
+      <div className="filter">
+        <label>
+          Month <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
+        </label>
+        <button type="button" onClick={() => setMonth('')} disabled={month === ''}>
+          Show all
+        </button>
+      </div>
 
       <section className="summary">
         <div>
@@ -117,10 +134,16 @@ function App() {
         />
         <input
           placeholder="Category"
+          list="categories"
           value={category}
           onChange={(e) => setCategory(e.target.value)}
           required
         />
+        <datalist id="categories">
+          {categories.map((c) => (
+            <option key={c} value={c} />
+          ))}
+        </datalist>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
         <input placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
         <button type="submit">Add</button>
@@ -128,11 +151,15 @@ function App() {
 
       {error && <p className="error">{error}</p>}
 
-      {transactions.length === 0 ? (
-        <p className="empty">No transactions yet. Add your first one above.</p>
+      {visible.length === 0 ? (
+        <p className="empty">
+          {transactions.length === 0
+            ? 'No transactions yet. Add your first one above.'
+            : 'No transactions in this month.'}
+        </p>
       ) : (
         <ul className="list">
-          {transactions.map((t) => (
+          {visible.map((t) => (
             <li key={t.id}>
               <span className="date">{t.date}</span>
               <span className="category">

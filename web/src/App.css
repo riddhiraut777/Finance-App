@@ -5,6 +5,19 @@
   text-align: left;
 }
 
+.filter {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.filter input,
+.filter button {
+  padding: 6px 10px;
+  font-size: 15px;
+}
+
 .summary {
   display: flex;
   gap: 12px;
