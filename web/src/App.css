@@ -179,3 +179,80 @@
   cursor: pointer;
   color: #888;
 }
+
+/* Top bar: title on the left, who's logged in and the logout button on the right. */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.account {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.account button {
+  padding: 6px 10px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* Login / signup screen */
+.auth {
+  max-width: 380px;
+}
+
+.auth h2 {
+  font-size: 18px;
+  margin: 0 0 16px;
+  color: var(--text-h);
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.auth-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--text-h);
+  font-size: 14px;
+}
+
+.auth-form label small {
+  color: var(--text);
+}
+
+.auth-form input,
+.auth-form button {
+  padding: 10px;
+  font-size: 16px;
+}
+
+.auth-form button {
+  cursor: pointer;
+}
+
+.auth-switch {
+  margin-top: 16px;
+  color: var(--text);
+}
+
+.auth-switch .link {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--bar, #2a78d6);
+  text-decoration: underline;
+  cursor: pointer;
+}

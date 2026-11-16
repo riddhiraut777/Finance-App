@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import './App.css'
+import Login, { type User } from './Login'
 
 // The shape of one transaction, matching the API / database columns.
 type Transaction = {
@@ -16,7 +17,16 @@ const formatMoney = (amount: number) => (amount / 100).toFixed(2)
 
 const today = () => new Date().toISOString().slice(0, 10)
 
-function App() {
+// The main screen, shown only when someone is logged in.
+function Transactions({
+  user,
+  onLogout,
+  onSessionExpired,
+}: {
+  user: User
+  onLogout: () => void
+  onSessionExpired: () => void
+}) {
   // `useState` holds data that, when changed, makes the screen update.
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [error, setError] = useState('')
@@ -31,9 +41,18 @@ function App() {
   const [date, setDate] = useState(today())
   const [note, setNote] = useState('')
 
+  // Like fetch, but if the server says we're no longer logged in (401),
+  // go back to the login screen.
+  async function request(url: string, init?: RequestInit) {
+    const res = await fetch(url, init)
+    if (res.status === 401) onSessionExpired()
+    return res
+  }
+
   // Ask the API for the list and store it in state.
   async function loadTransactions() {
-    const res = await fetch('/api/transactions')
+    const res = await request('/api/transactions')
+    if (!res.ok) throw new Error('Could not load transactions')
     setTransactions(await res.json())
   }
 
@@ -71,7 +90,7 @@ function App() {
     e.preventDefault()
     setError('')
 
-    const res = await fetch(
+    const res = await request(
       editingId === null ? '/api/transactions' : `/api/transactions/${editingId}`,
       {
       method: editingId === null ? 'POST' : 'PUT',
@@ -106,7 +125,7 @@ function App() {
   }
 
   async function handleDelete(id: number) {
-    await fetch(`/api/transactions/${id}`, { method: 'DELETE' })
+    await request(`/api/transactions/${id}`, { method: 'DELETE' })
     if (id === editingId) resetForm() // don't keep editing a deleted row
     await loadTransactions()
   }
@@ -161,7 +180,15 @@ function App() {
 
   return (
     <main className="app">
-      <h1>Finance Tracker</h1>
+      <header className="topbar">
+        <h1>Finance Tracker</h1>
+        <div className="account">
+          <span>{user.email}</span>
+          <button type="button" onClick={onLogout}>
+            Log out
+          </button>
+        </div>
+      </header>
 
       <div className="filter">
         <label>
@@ -276,6 +303,36 @@ function App() {
       )}
     </main>
   )
+}
+
+// Decides what to show: the login screen or the transactions screen.
+function App() {
+  // undefined = still checking, null = not logged in, otherwise the user.
+  const [user, setUser] = useState<User | null | undefined>(undefined)
+
+  // On page load, ask the API whether the browser's cookie is a valid session.
+  useEffect(() => {
+    fetch('/api/me')
+      .then((res) => (res.ok ? res.json() : null))
+      .then(setUser)
+      .catch(() => setUser(null))
+  }, [])
+
+  async function handleLogout() {
+    await fetch('/api/logout', { method: 'POST' })
+    setUser(null)
+  }
+
+  if (user === undefined) {
+    return (
+      <main className="app">
+        <p className="empty">Loading…</p>
+      </main>
+    )
+  }
+  if (user === null) return <Login onLogin={setUser} />
+
+  return <Transactions user={user} onLogout={handleLogout} onSessionExpired={() => setUser(null)} />
 }
 
 export default App
