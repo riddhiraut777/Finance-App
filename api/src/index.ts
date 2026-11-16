@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { serveStatic } from "hono/bun";
 import { type AppEnv, auth, requireAuth } from "./auth";
 import { db } from "./db";
 
@@ -104,5 +105,18 @@ app.delete("/api/transactions/:id", (c) => {
   }
   return c.json({ deleted: id });
 });
+
+// ---------- serve the built frontend ----------
+// After `bun run build` in web/, the finished page lives in web/dist.
+// The API hands those files out, so one program serves both the page and the data.
+const WEB_DIR = process.env.WEB_DIR ?? "../web/dist"; // relative to where the API is started (api/)
+
+// An unknown /api/... address is an error, never the web page.
+app.all("/api/*", (c) => c.json({ error: "Not found" }, 404));
+
+// 1. If the address matches a built file (the JavaScript, CSS, icons), send that file.
+app.use("*", serveStatic({ root: WEB_DIR }));
+// 2. Otherwise send the main page, so the app loads from any address.
+app.get("*", serveStatic({ path: `${WEB_DIR}/index.html` }));
 
 export default app;
